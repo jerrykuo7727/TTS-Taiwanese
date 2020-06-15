@@ -10,8 +10,8 @@ python3_cmd=python3.6
 
 # general configuration
 backend=pytorch
-stage=0
-stop_stage=0
+stage=1
+stop_stage=1
 ngpu=1       # number of gpus ("0" uses cpu, otherwise use gpu)
 nj=32        # numebr of parallel jobs
 dumpdir=dump # directory to dump full features
@@ -61,7 +61,7 @@ if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
     echo "    Stage 0: Data Preparation    "
     echo "#################################"
     echo `date`
-    rm data -rf
+    rm data dump -rf
     ${python3_cmd} local/prepare_data.py
     ${python3_cmd} local/preprocess_data.py
 
@@ -79,34 +79,34 @@ if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
     echo `date`
 fi
 
+
 feat_tr_dir=${dumpdir}/${train_set}; mkdir -p ${feat_tr_dir}
 feat_dt_dir=${dumpdir}/${train_dev}; mkdir -p ${feat_dt_dir}
 feat_ev_dir=${dumpdir}/${eval_set}; mkdir -p ${feat_ev_dir}
 if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
     ### Task dependent. You have to design training and dev sets by yourself.
     ### But you can utilize Kaldi recipes in most cases
-    echo "stage 1: Feature Generation"
+    echo "###################################"
+    echo "    Stage 1: Feature Generation    "
+    echo "###################################"
+    echo `date`
 
     # Generate the fbank features; by default 80-dimensional fbanks on each frame
     fbankdir=fbank
-    make_fbank.sh --cmd "${train_cmd}" --nj ${nj} \
-        --fs ${fs} \
-        --fmax "${fmax}" \
-        --fmin "${fmin}" \
-        --n_fft ${n_fft} \
-        --n_shift ${n_shift} \
-        --win_length "${win_length}" \
-        --n_mels ${n_mels} \
-        data/train \
-        exp/make_fbank/train \
-        ${fbankdir}
-
-    # make a dev set
-    utils/subset_data_dir.sh --last data/train 200 data/deveval
-    utils/subset_data_dir.sh --first data/deveval 100 data/${train_dev}
-    utils/subset_data_dir.sh --last data/deveval 100 data/${eval_set}
-    n=$(( $(wc -l < data/train/wav.scp) - 200 ))
-    utils/subset_data_dir.sh --first data/train ${n} data/${train_set}
+    for dset in test dev train; do
+        make_fbank.sh --cmd "${train_cmd}" --nj ${nj} \
+            --fs ${fs} \
+            --fmax "${fmax}" \
+            --fmin "${fmin}" \
+            --n_fft ${n_fft} \
+            --n_shift ${n_shift} \
+            --win_length "${win_length}" \
+            --n_mels ${n_mels} \
+            data/${dset} \
+            exp/make_fbank/${dset} \
+            ${fbankdir}
+        utils/fix_data_dir.sh data/${dset}
+    done
 
     # compute statistics for global mean-variance normalization
     compute-cmvn-stats scp:data/${train_set}/feats.scp data/${train_set}/cmvn.ark
@@ -118,7 +118,9 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
         data/${train_dev}/feats.scp data/${train_set}/cmvn.ark exp/dump_feats/dev ${feat_dt_dir}
     dump.sh --cmd "$train_cmd" --nj ${nj} --do_delta false \
         data/${eval_set}/feats.scp data/${train_set}/cmvn.ark exp/dump_feats/eval ${feat_ev_dir}
+    echo `date`
 fi
+
 
 dict=data/lang_phn/${train_set}_units.txt
 echo "dictionary: ${dict}"
