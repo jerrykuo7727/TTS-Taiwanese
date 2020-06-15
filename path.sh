@@ -1,4 +1,4 @@
-MAIN_ROOT=$PWD/../../..
+MAIN_ROOT=/home/M10815022/Tools/espnet
 KALDI_ROOT=$MAIN_ROOT/tools/kaldi
 
 [ -f $KALDI_ROOT/tools/env.sh ] && . $KALDI_ROOT/tools/env.sh

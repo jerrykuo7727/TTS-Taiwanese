@@ -6,10 +6,12 @@
 . ./path.sh || exit 1;
 . ./cmd.sh || exit 1;
 
+python3_cmd=python3.6
+
 # general configuration
 backend=pytorch
-stage=-1
-stop_stage=100
+stage=0
+stop_stage=0
 ngpu=1       # number of gpus ("0" uses cpu, otherwise use gpu)
 nj=32        # numebr of parallel jobs
 dumpdir=dump # directory to dump full features
@@ -36,9 +38,6 @@ model=model.loss.best
 n_average=1 # if > 0, the model averaged with n_average ckpts will be used instead of model.loss.best
 griffin_lim_iters=64  # the number of iterations of Griffin-Lim
 
-# root directory of db
-db_root=downloads
-
 # exp tag
 tag="" # tag for managing experiments.
 
@@ -50,25 +49,34 @@ set -e
 set -u
 set -o pipefail
 
-train_set="train_no_dev"
+train_set="train"
 train_dev="dev"
-eval_set="eval"
+eval_set="test"
 
-if [ ${stage} -le -1 ] && [ ${stop_stage} -ge -1 ]; then
-    echo "stage -1: Data Download"
-    local/data_download.sh ${db_root}
-fi
 
 if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
     ### Task dependent. You have to make data the following preparation part by yourself.
     ### But you can utilize Kaldi recipes in most cases
-    echo "stage 0: Data preparation"
-    local/data_prep.sh ${db_root}/CSMSC data/train
+    echo "#################################"
+    echo "    Stage 0: Data Preparation    "
+    echo "#################################"
+    echo `date`
+    rm data -rf
+    ${python3_cmd} local/prepare_data.py
+    ${python3_cmd} local/preprocess_data.py
 
-    # Downsample to fs from 48k
-    utils/data/resample_data_dir.sh ${fs} data/train
+    for dset in dev test train; do
+        dset_data=`ls -d data/all_split/*_${dset}`
+        utils/combine_data.sh data/$dset ${dset_data[*]}
+        utils/utt2spk_to_spk2utt.pl data/$dset/utt2spk > data/$dset/spk2utt
+        utils/fix_data_dir.sh data/$dset
 
-    utils/validate_data_dir.sh --no-feats data/train
+        # Downsample to fs from 48k
+        echo "Downsampling audios in $dset split..."
+        utils/data/resample_data_dir.sh ${fs} data/$dset
+        utils/validate_data_dir.sh --no-feats data/$dset
+    done
+    echo `date`
 fi
 
 feat_tr_dir=${dumpdir}/${train_set}; mkdir -p ${feat_tr_dir}
