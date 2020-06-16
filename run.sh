@@ -13,7 +13,7 @@ backend=pytorch
 stage=1
 stop_stage=1
 ngpu=1       # number of gpus ("0" uses cpu, otherwise use gpu)
-nj=32        # numebr of parallel jobs
+nj=64        # numebr of parallel jobs
 dumpdir=dump # directory to dump full features
 verbose=1    # verbose option (if set > 0, get more log)
 N=0          # number of minibatches to be used (mainly for debugging). "0" uses all minibatches.
@@ -21,13 +21,13 @@ seed=1       # random seed number
 resume=""    # the snapshot path to resume (if set empty, no effect)
 
 # feature extraction related
-fs=24000        # sampling frequency
-fmax=7600       # maximum frequency
-fmin=80         # minimum frequency
+fs=16000        # sampling frequency
+fmax=""         # maximum frequency
+fmin=""         # minimum frequency
 n_mels=80       # number of mel basis
-n_fft=2048      # number of fft points
-n_shift=300     # number of shift points
-win_length=1200 # window length
+n_fft=1024      # number of fft points
+n_shift=256     # number of shift points
+win_length=""   # window length
 
 # config files
 train_config=conf/tuning/train_pytorch_transformer.v1.single.yaml
@@ -61,7 +61,7 @@ if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
     echo "    Stage 0: Data Preparation    "
     echo "#################################"
     echo `date`
-    rm data dump -rf
+    rm data dump exp fbank -rf
     ${python3_cmd} local/prepare_data.py
     ${python3_cmd} local/preprocess_data.py
 
@@ -70,10 +70,6 @@ if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
         utils/combine_data.sh data/$dset ${dset_data[*]}
         utils/utt2spk_to_spk2utt.pl data/$dset/utt2spk > data/$dset/spk2utt
         utils/fix_data_dir.sh data/$dset
-
-        # Downsample to fs from 48k
-        echo "Downsampling audios in $dset split..."
-        utils/data/resample_data_dir.sh ${fs} data/$dset
         utils/validate_data_dir.sh --no-feats data/$dset
     done
     echo `date`
@@ -94,7 +90,7 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
     # Generate the fbank features; by default 80-dimensional fbanks on each frame
     fbankdir=fbank
     for dset in test dev train; do
-        make_fbank.sh --cmd "${train_cmd}" --nj ${nj} \
+        local/make_fbank_loose.sh --cmd "${train_cmd}" --nj ${nj} \
             --fs ${fs} \
             --fmax "${fmax}" \
             --fmin "${fmin}" \
@@ -105,8 +101,16 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
             data/${dset} \
             exp/make_fbank/${dset} \
             ${fbankdir}
-        utils/fix_data_dir.sh data/${dset}
+        utils/fix_data_dir.sh data/$dset
+        utils/validate_data_dir.sh data/$dset
     done
+
+    # remove utt having more than 3000 frames
+    # remove utt having more than 400 characters
+    mv data/${train_set} data/${train_set}_org
+    mv data/${dev_set} data/${dev_set}_org
+    remove_longshortdata.sh --maxframes 3000 --maxchars 400 data/${train_set}_org data/${train_set}
+    remove_longshortdata.sh --maxframes 3000 --maxchars 400 data/${dev_set}_org data/${dev_set}
 
     # compute statistics for global mean-variance normalization
     compute-cmvn-stats scp:data/${train_set}/feats.scp data/${train_set}/cmvn.ark
