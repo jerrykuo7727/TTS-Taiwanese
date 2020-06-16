@@ -10,9 +10,10 @@ python3_cmd=python3.6
 
 # general configuration
 backend=pytorch
-stage=2
-stop_stage=2
+stage=3
+stop_stage=3
 ngpu=1       # number of gpus ("0" uses cpu, otherwise use gpu)
+export CUDA_VISIBLE_DEVICES=3
 nj=64        # numebr of parallel jobs
 dumpdir=dump # directory to dump full features
 verbose=1    # verbose option (if set > 0, get more log)
@@ -161,7 +162,9 @@ fi
 expdir=exp/${expname}
 mkdir -p ${expdir}
 if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
-    echo "stage 3: Text-to-speech model training"
+    echo "##############################################"
+    echo "    Stage 3: Text-to-speech Model Training    "
+    echo "##############################################"
     tr_json=${feat_tr_dir}/data.json
     dt_json=${feat_dt_dir}/data.json
     ${cuda_cmd} --gpu ${ngpu} ${expdir}/train.log \
@@ -176,9 +179,9 @@ if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
            --resume ${resume} \
            --train-json ${tr_json} \
            --valid-json ${dt_json} \
-           --test-json ???
            --config ${train_config}
 fi
+
 
 if [ ${n_average} -gt 0 ]; then
     model=model.last${n_average}.avg.best
