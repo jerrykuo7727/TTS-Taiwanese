@@ -99,6 +99,14 @@ def main():
         logging.basicConfig(level=logging.WARN, format=logfmt)
     logging.info(get_commandline_args())
 
+    # Find the number of utterances
+    with kaldiio.ReadHelper(
+        args.rspecifier, segments=args.segments
+    ) as reader:
+        n_utt = sum(1 for _ in reader)
+    logging.info("%d utterances found to be processed." % n_utt)
+
+    # Compute fbank features
     with kaldiio.ReadHelper(
         args.rspecifier, segments=args.segments
     ) as reader, file_writer_helper(
@@ -108,7 +116,9 @@ def main():
         compress=args.compress,
         compression_method=args.compression_method,
     ) as writer:
-        for utt_id, (rate, array) in reader:
+        for i, struct in enumerate(reader, start=1):
+            logging.info("processing %d/%d(%.2f%%)" % (i, n_utt, 100*i/n_utt))
+            utt_id, (rate, array) = struct
             try:
                 assert rate == args.fs
                 array = array.astype(numpy.float32)
