@@ -10,8 +10,8 @@ python3_cmd=python3.6
 
 # general configuration
 backend=pytorch
-stage=1
-stop_stage=1
+stage=2
+stop_stage=2
 ngpu=1       # number of gpus ("0" uses cpu, otherwise use gpu)
 nj=64        # numebr of parallel jobs
 dumpdir=dump # directory to dump full features
@@ -108,9 +108,9 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
     # remove utt having more than 3000 frames
     # remove utt having more than 400 characters
     mv data/${train_set} data/${train_set}_org
-    mv data/${dev_set} data/${dev_set}_org
+    mv data/${train_dev} data/${train_dev}_org
     remove_longshortdata.sh --maxframes 3000 --maxchars 400 data/${train_set}_org data/${train_set}
-    remove_longshortdata.sh --maxframes 3000 --maxchars 400 data/${dev_set}_org data/${dev_set}
+    remove_longshortdata.sh --maxframes 3000 --maxchars 400 data/${train_dev}_org data/${train_dev}
 
     # compute statistics for global mean-variance normalization
     compute-cmvn-stats scp:data/${train_set}/feats.scp data/${train_set}/cmvn.ark
@@ -126,25 +126,32 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
 fi
 
 
-dict=data/lang_phn/${train_set}_units.txt
+dict=data/lang_1char/${train_set}_units.txt
 echo "dictionary: ${dict}"
 if [ ${stage} -le 2 ] && [ ${stop_stage} -ge 2 ]; then
     ### Task dependent. You have to check non-linguistic symbols used in the corpus.
-    echo "stage 2: Dictionary and Json Data Preparation"
-    mkdir -p data/lang_phn/
-    echo "<unk> 1" > ${dict} # <unk> must be 1, 0 will be used for padding idx
-    text2token.py -s 1 -n 1 --trans_type phn data/${train_set}/text | cut -f 2- -d" " | tr " " "\n" \
+    echo "#####################################################"
+    echo "    Stage 2: Dictionary and JSON Data Preparation    "
+    echo "#####################################################"
+    echo `date`
+
+    echo "make a dictionary"
+    mkdir -p data/lang_1char/
+    echo "<unk> 1" > ${dict}  # <unk> must be 1, 0 will be used for padding idx
+    text2token.py -s 1 -n 1 data/${train_set}/text | cut -f 2- -d" " | tr " " "\n" \
     | sort | uniq | grep -v -e '^\s*$' | awk '{print $0 " " NR+1}' >> ${dict}
     wc -l ${dict}
 
-    # make json labels
-    data2json.sh --feat ${feat_tr_dir}/feats.scp --trans_type phn \
+    echo "make json labels"
+    data2json.sh --feat ${feat_tr_dir}/feats.scp \
          data/${train_set} ${dict} > ${feat_tr_dir}/data.json
-    data2json.sh --feat ${feat_dt_dir}/feats.scp --trans_type phn \
+    data2json.sh --feat ${feat_dt_dir}/feats.scp \
          data/${train_dev} ${dict} > ${feat_dt_dir}/data.json
-    data2json.sh --feat ${feat_ev_dir}/feats.scp --trans_type phn \
+    data2json.sh --feat ${feat_ev_dir}/feats.scp \
          data/${eval_set} ${dict} > ${feat_ev_dir}/data.json
+    echo `date`
 fi
+
 
 if [ -z ${tag} ]; then
     expname=${train_set}_${backend}_$(basename ${train_config%.*})
@@ -169,6 +176,7 @@ if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
            --resume ${resume} \
            --train-json ${tr_json} \
            --valid-json ${dt_json} \
+           --test-json ???
            --config ${train_config}
 fi
 
