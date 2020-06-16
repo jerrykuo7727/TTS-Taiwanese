@@ -100,10 +100,7 @@ def main():
     logging.info(get_commandline_args())
 
     # Find the number of utterances
-    with kaldiio.ReadHelper(
-        args.rspecifier, segments=args.segments
-    ) as reader:
-        n_utt = sum(1 for _ in reader)
+    n_utt = sum(1 for line in open(args.segments))
     logging.info("%d utterances found to be processed." % n_utt)
 
     # Compute fbank features
