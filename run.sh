@@ -14,7 +14,7 @@ stage=0
 stop_stage=2
 ngpu=1       # number of gpus ("0" uses cpu, otherwise use gpu)
 export CUDA_VISIBLE_DEVICES=2
-nj=56        # numebr of parallel jobs
+nj=48        # numebr of parallel jobs
 dumpdir=dump # directory to dump full features
 verbose=1    # verbose option (if set > 0, get more log)
 N=0          # number of minibatches to be used (mainly for debugging). "0" uses all minibatches.
@@ -23,8 +23,8 @@ resume=""    # the snapshot path to resume (if set empty, no effect)
 
 # feature extraction related
 fs=16000        # sampling frequency
-fmax=""         # maximum frequency
-fmin=""         # minimum frequency
+fmax=7600       # maximum frequency
+fmin=80         # minimum frequency
 n_mels=80       # number of mel basis
 n_fft=1024      # number of fft points
 n_shift=256     # number of shift points
