@@ -10,11 +10,11 @@ python3_cmd=python3.6
 
 # general configuration
 backend=pytorch
-stage=3
-stop_stage=3
+stage=0
+stop_stage=2
 ngpu=1       # number of gpus ("0" uses cpu, otherwise use gpu)
-export CUDA_VISIBLE_DEVICES=3
-nj=64        # numebr of parallel jobs
+export CUDA_VISIBLE_DEVICES=2
+nj=56        # numebr of parallel jobs
 dumpdir=dump # directory to dump full features
 verbose=1    # verbose option (if set > 0, get more log)
 N=0          # number of minibatches to be used (mainly for debugging). "0" uses all minibatches.
@@ -62,7 +62,7 @@ if [ ${stage} -le 0 ] && [ ${stop_stage} -ge 0 ]; then
     echo "    Stage 0: Data Preparation    "
     echo "#################################"
     echo `date`
-    rm data dump exp fbank -rf
+    rm data dump exp fbank tensorboard -rf
     ${python3_cmd} local/prepare_data.py
     ${python3_cmd} local/preprocess_data.py
 
@@ -110,8 +110,8 @@ if [ ${stage} -le 1 ] && [ ${stop_stage} -ge 1 ]; then
     # remove utt having more than 400 characters
     mv data/${train_set} data/${train_set}_org
     mv data/${train_dev} data/${train_dev}_org
-    remove_longshortdata.sh --maxframes 3000 --maxchars 400 data/${train_set}_org data/${train_set}
-    remove_longshortdata.sh --maxframes 3000 --maxchars 400 data/${train_dev}_org data/${train_dev}
+    remove_longshortdata.sh --maxframes 300 data/${train_set}_org data/${train_set}
+    remove_longshortdata.sh --maxframes 300 data/${train_dev}_org data/${train_dev}
 
     # compute statistics for global mean-variance normalization
     compute-cmvn-stats scp:data/${train_set}/feats.scp data/${train_set}/cmvn.ark
@@ -165,6 +165,7 @@ if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
     echo "##############################################"
     echo "    Stage 3: Text-to-speech Model Training    "
     echo "##############################################"
+    echo `date`
     tr_json=${feat_tr_dir}/data.json
     dt_json=${feat_dt_dir}/data.json
     ${cuda_cmd} --gpu ${ngpu} ${expdir}/train.log \
@@ -180,6 +181,7 @@ if [ ${stage} -le 3 ] && [ ${stop_stage} -ge 3 ]; then
            --train-json ${tr_json} \
            --valid-json ${dt_json} \
            --config ${train_config}
+    echo `date`
 fi
 
 
